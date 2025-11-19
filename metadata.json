@@ -1,0 +1,5 @@
+{
+  "name": "Vibey Cat vs Eagley: Endless Challenge",
+  "description": "An advanced cat-and-mouse game where you control a target cat (Pluto) to evade an AI eagle, while maneuvering an autopilot attacker cat (PJ) to intercept the eagle. Features dynamic AI, sound effects, and special environmental effects.",
+  "requestFramePermissions": []
+}
