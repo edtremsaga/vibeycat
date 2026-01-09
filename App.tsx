@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import GameScreen from './components/GameScreen';
-import { GameState, Position, PowerUp, PlutoEffect, LightningState, DayCycle, GameMessage } from './types';
+import Tutorial from './components/Tutorial';
+import ParticleSystem from './components/ParticleSystem';
+import MobileControls, { MobilePauseButton } from './components/MobileControls';
+import { GameState, Position, PowerUp, PlutoEffect, LightningState, DayCycle, GameMessage, ComboData } from './types';
 import { checkCollision, checkCatCatCollision, clampPosition } from './utils/gameUtils';
 import * as Constants from './constants';
+import { audioService } from './services/audioService';
 
 const App: React.FC = () => {
   // Game state
@@ -48,6 +52,25 @@ const App: React.FC = () => {
   const [eagleTrail, setEagleTrail] = useState<{ pos: Position; id: number }[]>([]);
   const nextTrailId = useRef(0);
   const lastTrailTime = useRef(0);
+
+  // Combo system
+  const [comboData, setComboData] = useState<ComboData>({ count: 0, multiplier: 1.0, lastCatchTime: 0 });
+  
+  // Tutorial
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [hasCompletedTutorial, setHasCompletedTutorial] = useState(false);
+  
+  // Visual effects
+  const [screenShake, setScreenShake] = useState(0);
+  const [powerUpCollectPos, setPowerUpCollectPos] = useState<Position | undefined>(undefined);
+  const [isEagleFrozen, setIsEagleFrozen] = useState(false);
+  const [isPlutoInvisible, setIsPlutoInvisible] = useState(false);
+  const [doubleScoreActive, setDoubleScoreActive] = useState(false);
+  
+  // Mobile detection and touch controls
+  const [isMobile, setIsMobile] = useState(false);
+  const [touchDirection, setTouchDirection] = useState({ x: 0, y: 0 });
+  const touchPosRef = useRef<Position | null>(null);
 
   const roomRef = useRef<HTMLDivElement>(null);
   const isTransitioningRound = useRef(false);
@@ -98,7 +121,7 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const resetGame = useCallback(() => {
+  const resetGame = useCallback((autoStart: boolean = false) => {
     if (animationFrameId.current) {
       cancelAnimationFrame(animationFrameId.current);
       animationFrameId.current = null;
@@ -123,16 +146,58 @@ const App: React.FC = () => {
     setLevel(1);
     setPlayerScore(0);
     setEagleScore(0);
+    setComboData({ count: 0, multiplier: 1.0, lastCatchTime: 0 });
+    setIsEagleFrozen(false);
+    setIsPlutoInvisible(false);
+    setDoubleScoreActive(false);
 
     resetRound();
 
-    setMessage({ text: "Move Pluto with Arrow Keys to begin!", type: 'info' });
-    setGameState('ready');
+    if (autoStart) {
+      setMessage(null);
+      setGameState('running');
+    } else {
+      setMessage({ text: "Move Pluto with Arrow Keys to begin!", type: 'info' });
+      setGameState('ready');
+    }
   }, [resetRound]);
 
   useEffect(() => {
     resetGame();
+    // Check if tutorial should be shown (first time only)
+    const tutorialShown = localStorage.getItem('vibeycat-tutorial-completed');
+    if (!tutorialShown) {
+      setShowTutorial(true);
+    }
+    
+    // Detect mobile device (only by user agent, not screen size to avoid false positives)
+    const checkMobile = () => {
+      const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      setIsMobile(isMobileDevice);
+      // Debug log (remove in production)
+      if (isMobileDevice) {
+        console.log('Mobile device detected:', navigator.userAgent);
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, [resetGame]);
+
+  // Initialize audio on mount
+  useEffect(() => {
+    audioService.startBackgroundMusic(dayCycle);
+    return () => {
+      audioService.stopBackgroundMusic();
+    };
+  }, []);
+
+  // Update background music when day cycle changes
+  useEffect(() => {
+    if (gameState === 'running') {
+      audioService.startBackgroundMusic(dayCycle);
+    }
+  }, [dayCycle, gameState]);
 
   const startGame = useCallback(() => {
     setMessage(null);
@@ -157,12 +222,21 @@ const App: React.FC = () => {
     setIsLightningActive(true);
     setIsEagleStunned(true);
     setLightningState({ ready: false, cooldownLeft: Constants.LIGHTNING_COOLDOWN });
+    audioService.playLightning();
+    setScreenShake(Constants.SCREEN_SHAKE_INTENSITY);
+    setTimeout(() => setScreenShake(0), Constants.SCREEN_SHAKE_DURATION);
 
     addTimeout(() => setIsEagleStunned(false), Constants.LIGHTNING_STUN_DURATION);
     addTimeout(() => setIsLightningActive(false), 500);
   }, [gameState, lightningState.ready, addTimeout]);
 
   const updatePlutoVelocity = useCallback(() => {
+    // On mobile, velocity is controlled by joystick, not keyboard
+    // Only skip if we're actually on mobile AND using touch controls
+    if (isMobile && touchDirection.x !== 0 && touchDirection.y !== 0) {
+      return; // Velocity is updated by handleMobileDirectionChange
+    }
+    
     let vx = 0;
     let vy = 0;
     let speed = plutoEffect.type === 'speed' 
@@ -179,10 +253,22 @@ const App: React.FC = () => {
       vy /= Constants.DIAGONAL_MOVEMENT_NORMALIZATION;
     }
     plutoVelocity.current = { vx, vy };
-  }, [plutoEffect.type]);
+  }, [plutoEffect.type, isMobile, touchDirection]);
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (event.key === ' ') { event.preventDefault(); resetGame(); return; }
+    if (event.key === ' ') { 
+      event.preventDefault(); 
+      if (gameState === 'ready') {
+        startGame();
+      } else if (gameState === 'game over' || gameState === 'paused') {
+        // Reset and immediately start the game
+        resetGame(true);
+      } else if (gameState === 'running') {
+        // Just reset, don't auto-start
+        resetGame();
+      }
+      return; 
+    }
     if (event.key.toLowerCase() === 'p') { event.preventDefault(); pauseGame(); return; }
     if (event.key.toLowerCase() === 'l') { event.preventDefault(); triggerLightning(); return; }
 
@@ -217,6 +303,62 @@ const App: React.FC = () => {
       y: event.clientY - rect.top,
     };
   }, []);
+
+  // Touch handlers for mobile
+  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (!roomRef.current || !isMobile) return;
+    const touch = event.touches[0];
+    const rect = roomRef.current.getBoundingClientRect();
+    touchPosRef.current = {
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    };
+    mousePos.current = touchPosRef.current;
+  }, [isMobile]);
+
+  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (!roomRef.current || !isMobile) return;
+    const touch = event.touches[0];
+    const rect = roomRef.current.getBoundingClientRect();
+    touchPosRef.current = {
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    };
+    mousePos.current = touchPosRef.current;
+  }, [isMobile]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isMobile) return;
+    touchPosRef.current = null;
+    pjVelocity.current = { vx: 0, vy: 0 };
+  }, [isMobile]);
+
+  // Handle mobile joystick direction
+  const handleMobileDirectionChange = useCallback((direction: { x: number; y: number }) => {
+    setTouchDirection(direction);
+    // Update Pluto velocity based on joystick
+    const speed = plutoEffect.type === 'speed' 
+      ? Constants.FRIEND_CAT_PLAYER_SPEED * Constants.PLUTO_SPEED_BOOST_MULTIPLIER 
+      : Constants.FRIEND_CAT_PLAYER_SPEED;
+    
+    let vx = direction.x * speed;
+    let vy = direction.y * speed;
+    
+    if (vx !== 0 && vy !== 0) {
+      vx /= Constants.DIAGONAL_MOVEMENT_NORMALIZATION;
+      vy /= Constants.DIAGONAL_MOVEMENT_NORMALIZATION;
+    }
+    
+    plutoVelocity.current = { vx, vy };
+    
+    // Mark that Pluto has moved
+    if ((vx !== 0 || vy !== 0) && !hasPlutoMoved.current) {
+      hasPlutoMoved.current = true;
+      if (gameState === 'ready') {
+        startGame();
+      }
+    }
+  }, [plutoEffect.type, gameState, startGame]);
 
   const handleMouseLeave = useCallback(() => {
     pjVelocity.current = { vx: 0, vy: 0 };
@@ -336,7 +478,11 @@ const App: React.FC = () => {
       pjVelocity.current.vy = 0;
     }
 
-    // Pluto movement
+    // Pluto movement - update velocity from keyboard if not on mobile
+    if (!isMobile) {
+      updatePlutoVelocity();
+    }
+    
     let nextPlutoPos = {
       x: plutoPos.x + plutoVelocity.current.vx * frameMultiplier,
       y: plutoPos.y + plutoVelocity.current.vy * frameMultiplier
@@ -373,7 +519,7 @@ const App: React.FC = () => {
       setEagleColorState('default');
     }
 
-    if (isEagleVisible && !isEagleStunned) {
+    if (isEagleVisible && !isEagleStunned && !isEagleFrozen) {
       let targetX, targetY, currentMoveSpeed;
 
       if (isShieldActive) {
@@ -390,7 +536,11 @@ const App: React.FC = () => {
         const dyPluto = nextPlutoPos.y - eaglePos.y;
         const distancePluto = Math.sqrt(dxPluto * dxPluto + dyPluto * dyPluto);
 
-        setIsPlutoScared(distancePluto < Constants.EAGLE_EVASION_RANGE);
+        const isScared = distancePluto < Constants.EAGLE_EVASION_RANGE;
+        if (isScared && !isPlutoScared) {
+          audioService.playPlutoScared();
+        }
+        setIsPlutoScared(isScared);
 
         if (distancePluto < Constants.EAGLE_PLUTO_PROXIMITY_BOOST_RANGE && !isEagleInPlutoProximity.current) {
           setEagleBoostTimeLeft(Constants.EAGLE_BOOST_DURATION);
@@ -456,22 +606,97 @@ const App: React.FC = () => {
     // Power-up collection
     powerUps.forEach(p => {
       if (checkCollision(nextPlutoPos, p.pos, Constants.CAT_RADIUS, 20)) {
-        const duration = p.type === 'shield' ? Constants.SHIELD_DURATION : Constants.SPEED_BOOST_DURATION;
+        audioService.playPowerUpCollect();
+        setPowerUpCollectPos(p.pos);
+        setTimeout(() => setPowerUpCollectPos(undefined), 100);
+        
+        let duration = Constants.SPEED_BOOST_DURATION;
+        switch (p.type) {
+          case 'speed':
+            duration = Constants.SPEED_BOOST_DURATION;
+            break;
+          case 'shield':
+            duration = Constants.SHIELD_DURATION;
+            break;
+          case 'freeze':
+            setIsEagleFrozen(true);
+            addTimeout(() => setIsEagleFrozen(false), Constants.FREEZE_DURATION);
+            setPowerUps(current => current.filter(up => up.id !== p.id));
+            return;
+          case 'teleport':
+            // Teleport to random safe location
+            const { clientWidth: roomWidth, clientHeight: roomHeight } = roomRef.current!;
+            const waterLine = roomHeight * (1 - Constants.LAKE_HEIGHT_PERCENTAGE);
+            const newPos = {
+              x: Math.random() * (roomWidth - Constants.CAT_RADIUS * 2) + Constants.CAT_RADIUS,
+              y: Math.random() * (waterLine - Constants.CAT_RADIUS * 2) + Constants.CAT_RADIUS
+            };
+            setPlutoPos(newPos);
+            setPowerUps(current => current.filter(up => up.id !== p.id));
+            return;
+          case 'invisibility':
+            setIsPlutoInvisible(true);
+            addTimeout(() => setIsPlutoInvisible(false), Constants.INVISIBILITY_DURATION);
+            setPowerUps(current => current.filter(up => up.id !== p.id));
+            return;
+          case 'doubleScore':
+            setDoubleScoreActive(true);
+            addTimeout(() => setDoubleScoreActive(false), Constants.DOUBLE_SCORE_DURATION);
+            setPowerUps(current => current.filter(up => up.id !== p.id));
+            return;
+        }
         setPlutoEffect({ type: p.type, timeLeft: duration });
         setPowerUps(current => current.filter(up => up.id !== p.id));
       }
     });
 
     const handlePlayerScore = (newScore: number) => {
-      setPlayerScore(newScore);
-      if (newScore >= Constants.VICTORY_SCORE) {
+      // Combo system
+      const currentTime = Date.now();
+      const timeSinceLastCatch = currentTime - comboData.lastCatchTime;
+      
+      let newComboCount = 0;
+      let newMultiplier = 1.0;
+      
+      if (timeSinceLastCatch < Constants.COMBO_WINDOW && comboData.lastCatchTime > 0) {
+        // Maintain combo
+        newComboCount = comboData.count + 1;
+        newMultiplier = Math.min(
+          Constants.MAX_COMBO_MULTIPLIER,
+          1.0 + (newComboCount * (Constants.COMBO_MULTIPLIER_BASE - 1.0))
+        );
+        audioService.playCombo(newComboCount);
+      } else {
+        // New combo
+        newComboCount = 1;
+        newMultiplier = 1.0;
+      }
+      
+      setComboData({
+        count: newComboCount,
+        multiplier: newMultiplier,
+        lastCatchTime: currentTime
+      });
+      
+      // Apply double score if active
+      const scoreIncrease = doubleScoreActive ? 2 : 1;
+      const actualNewScore = playerScore + scoreIncrease;
+      
+      audioService.playCatch();
+      setScreenShake(Constants.SCREEN_SHAKE_INTENSITY);
+      setTimeout(() => setScreenShake(0), Constants.SCREEN_SHAKE_DURATION);
+      
+      setPlayerScore(actualNewScore);
+      if (actualNewScore >= Constants.VICTORY_SCORE) {
         setGameState('game over');
         if (elapsedTime > highScore) {
           setHighScore(elapsedTime);
         }
-        setMessage({ text: `VICTORY! Final Score: ${newScore} - ${eagleScore}`, type: 'win' });
-      } else if (newScore === Constants.LEVEL_TRANSITION_SCORE && level === 1) {
+        audioService.playVictory();
+        setMessage({ text: `VICTORY! Final Score: ${actualNewScore} - ${eagleScore}`, type: 'win' });
+      } else if (actualNewScore === Constants.LEVEL_TRANSITION_SCORE && level === 1) {
         setIsLevelTransitioning(true);
+        audioService.playLevelUp();
         addTimeout(() => {
           setLevel(2);
           setIsLevelTransitioning(false);
@@ -492,6 +717,9 @@ const App: React.FC = () => {
         const newPlayerScore = playerScore + 1;
         setExplosions(ex => [...ex, nextEaglePos]);
         setIsEagleVisible(false);
+        audioService.playExplosion();
+        setScreenShake(Constants.SCREEN_SHAKE_INTENSITY);
+        setTimeout(() => setScreenShake(0), Constants.SCREEN_SHAKE_DURATION);
 
         addTimeout(() => {
           handlePlayerScore(newPlayerScore);
@@ -499,12 +727,15 @@ const App: React.FC = () => {
         return;
       }
       if (checkCollision(nextPlutoPos, nextEaglePos, Constants.CAT_RADIUS, Constants.EAGLE_RADIUS)) {
-        if (isShieldActive) {
+        if (isShieldActive || isPlutoInvisible) {
           isTransitioningRound.current = true;
-          const newPlayerScore = playerScore + 1;
+          const newPlayerScore = playerScore + (doubleScoreActive ? 2 : 1);
           setPlutoEffect({ type: null, timeLeft: 0 });
           setExplosions(ex => [...ex, nextEaglePos]);
           setIsEagleVisible(false);
+          audioService.playCatch();
+          setScreenShake(Constants.SCREEN_SHAKE_INTENSITY);
+          setTimeout(() => setScreenShake(0), Constants.SCREEN_SHAKE_DURATION);
 
           addTimeout(() => {
             handlePlayerScore(newPlayerScore);
@@ -513,6 +744,7 @@ const App: React.FC = () => {
         } else {
           isTransitioningRound.current = true;
           const newEagleScore = eagleScore + 1;
+          audioService.playEagleCatch();
 
           addTimeout(() => {
             setEagleScore(newEagleScore);
@@ -521,6 +753,7 @@ const App: React.FC = () => {
               if (elapsedTime > highScore) {
                 setHighScore(elapsedTime);
               }
+              audioService.playDefeat();
               setMessage({ text: `GAME OVER! Final Score: ${playerScore} - ${newEagleScore}`, type: 'lose' });
             } else {
               resetRound();
@@ -557,6 +790,21 @@ const App: React.FC = () => {
   const shieldEvasionMultiplier = isShieldActive ? Constants.EAGLE_SHIELD_EVASION_MULTIPLIER : 1.0;
   const finalEagleSpeedMultiplier = Math.max(chaseBoostMultiplier, defensiveBoostMultiplier) * shieldEvasionMultiplier;
 
+  const handleTutorialComplete = useCallback(() => {
+    setShowTutorial(false);
+    setHasCompletedTutorial(true);
+    localStorage.setItem('vibeycat-tutorial-completed', 'true');
+    if (gameState === 'ready') {
+      startGame();
+    }
+  }, [gameState, startGame]);
+
+  const handleTutorialSkip = useCallback(() => {
+    setShowTutorial(false);
+    setHasCompletedTutorial(true);
+    localStorage.setItem('vibeycat-tutorial-completed', 'true');
+  }, []);
+
   return (
     <div className="p-4 md:p-8 min-h-screen flex flex-col items-center bg-gray-100 font-sans">
       <div className="max-w-4xl w-full">
@@ -564,10 +812,23 @@ const App: React.FC = () => {
           Vibey Cat vs Eagley: Endless Challenge
         </h1>
 
-        <GameScreen
+        {showTutorial && (
+          <Tutorial onComplete={handleTutorialComplete} onSkip={handleTutorialSkip} />
+        )}
+
+        <div 
+          style={{
+            transform: screenShake > 0 ? `translate(${(Math.random() - 0.5) * screenShake}px, ${(Math.random() - 0.5) * screenShake}px)` : 'none',
+            transition: screenShake > 0 ? 'none' : 'transform 0.1s'
+          }}
+        >
+          <GameScreen
           roomRef={roomRef}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           dayCycle={dayCycle}
           pjPos={pjPos}
           plutoPos={plutoPos}
@@ -576,6 +837,8 @@ const App: React.FC = () => {
           eagleColorState={eagleColorState}
           isPlutoScared={isPlutoScared}
           isShieldActive={isShieldActive}
+          isPlutoInvisible={isPlutoInvisible}
+          isEagleFrozen={isEagleFrozen}
           powerUps={powerUps}
           plutoEffect={plutoEffect}
           lightningState={lightningState}
@@ -592,6 +855,35 @@ const App: React.FC = () => {
           isLevelTransitioning={isLevelTransitioning}
           onResetGame={resetGame}
         />
+          {/* Combo Display */}
+          {comboData.count > 1 && (
+            <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-30 bg-yellow-400 text-black px-6 py-3 rounded-full font-bold text-xl shadow-lg animate-bounce">
+              COMBO x{comboData.count}! ({comboData.multiplier.toFixed(1)}x)
+            </div>
+          )}
+
+          {/* Particle System */}
+          <ParticleSystem 
+            explosions={explosions}
+            powerUpCollect={powerUpCollectPos}
+          />
+        </div>
+
+        {/* Mobile Controls */}
+        {isMobile && (
+          <>
+            {gameState === 'running' && (
+              <MobileControls
+                onDirectionChange={handleMobileDirectionChange}
+                onLightning={triggerLightning}
+              />
+            )}
+            <MobilePauseButton
+              onPause={pauseGame}
+              isPaused={gameState === 'paused'}
+            />
+          </>
+        )}
 
         <div className="mt-8 p-4 bg-white rounded-xl shadow-lg w-full">
           <h2 className="text-xl font-bold text-gray-700 mb-4 border-b pb-2">Game Controls</h2>
@@ -602,6 +894,12 @@ const App: React.FC = () => {
             </button>
             <button onClick={resetGame} className="px-6 py-2 bg-pink-500 text-white font-bold rounded-lg shadow-md hover:bg-pink-600 transition duration-150">
               Start / Reset (Space)
+            </button>
+            <button 
+              onClick={() => setShowTutorial(true)} 
+              className="px-6 py-2 bg-blue-500 text-white font-bold rounded-lg shadow-md hover:bg-blue-600 transition duration-150"
+            >
+              Tutorial
             </button>
           </div>
 
@@ -631,8 +929,27 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-4 text-center text-sm text-gray-600">
-            Eagley Speed Multiplier: <span className="font-bold text-red-600 mx-1">{finalEagleSpeedMultiplier.toFixed(1)}x</span>
+          <div className="mt-4 text-center text-sm text-gray-600 space-y-1">
+            <div>
+              Eagley Speed Multiplier: <span className="font-bold text-red-600 mx-1">{finalEagleSpeedMultiplier.toFixed(1)}x</span>
+            </div>
+            {comboData.count > 0 && (
+              <div>
+                Current Combo: <span className="font-bold text-yellow-600 mx-1">{comboData.count}x</span>
+                {comboData.multiplier > 1.0 && (
+                  <span className="text-green-600"> ({comboData.multiplier.toFixed(1)}x bonus)</span>
+                )}
+              </div>
+            )}
+            {doubleScoreActive && (
+              <div className="text-purple-600 font-bold">⭐ Double Score Active!</div>
+            )}
+            {isEagleFrozen && (
+              <div className="text-blue-600 font-bold">❄️ Eagley is Frozen!</div>
+            )}
+            {isPlutoInvisible && (
+              <div className="text-gray-600 font-bold">👻 Pluto is Invisible!</div>
+            )}
           </div>
         </div>
       </div>

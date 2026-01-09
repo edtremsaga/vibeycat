@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graphics Examples - Vibey Cat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes float {
+            0%, 100% { transform: translate(-50%, -50%) translateY(0px); }
+            50% { transform: translate(-50%, -50%) translateY(-5px); }
+        }
+        .float-animation {
+            animation: float 2s ease-in-out infinite;
+        }
+        .sprite-demo {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-4xl font-bold mb-8 text-center">Graphics Implementation Examples</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <!-- Current (Emojis) -->
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-bold mb-4">Current: Emojis</h2>
+                <div class="sprite-demo p-8 rounded relative" style="height: 200px;">
+                    <div class="absolute top-1/4 left-1/4">
+                        <div class="w-16 h-16 rounded-full bg-orange-400 flex items-center justify-center text-2xl">
+                            😼
+                        </div>
+                        <p class="text-white text-xs mt-2 text-center">Pluto</p>
+                    </div>
+                    <div class="absolute top-1/4 right-1/4">
+                        <div class="w-16 h-16 rounded-full" style="background-color: #8B4513;" class="flex items-center justify-center text-2xl">
+                            <span class="text-2xl">😸</span>
+                        </div>
+                        <p class="text-white text-xs mt-2 text-center">PJ</p>
+                    </div>
+                    <div class="absolute bottom-1/4 left-1/2 transform -translate-x-1/2">
+                        <div class="w-20 h-20 rounded-full bg-yellow-400 flex items-center justify-center text-3xl">
+                            🦅
+                        </div>
+                        <p class="text-white text-xs mt-2 text-center">Eagley</p>
+                    </div>
+                </div>
+                <p class="mt-4 text-sm text-gray-600">Simple but looks like a prototype</p>
+            </div>
+
+            <!-- Approach 1: Sprite Images -->
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-bold mb-4">Approach 1: Sprite Images</h2>
+                <div class="sprite-demo p-8 rounded relative" style="height: 200px;">
+                    <div class="absolute top-1/4 left-1/4">
+                        <div class="w-16 h-16 rounded-full bg-orange-400 flex items-center justify-center">
+                            <div class="w-12 h-12 bg-orange-600 rounded-full flex items-center justify-center">
+                                <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                                    <div class="w-4 h-4 bg-black rounded-full"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-white text-xs mt-2 text-center">Pluto (sprite)</p>
+                    </div>
+                    <div class="absolute top-1/4 right-1/4">
+                        <div class="w-16 h-16 rounded-full flex items-center justify-center" style="background-color: #8B4513;">
+                            <div class="w-12 h-12 bg-amber-800 rounded-full flex items-center justify-center">
+                                <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                                    <div class="w-4 h-4 bg-black rounded-full"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-white text-xs mt-2 text-center">PJ (sprite)</p>
+                    </div>
+                    <div class="absolute bottom-1/4 left-1/2 transform -translate-x-1/2">
+                        <div class="w-20 h-20 rounded-full bg-yellow-400 flex items-center justify-center">
+                            <div class="w-16 h-16 bg-yellow-600 rounded-full relative">
+                                <div class="absolute top-2 left-4 w-3 h-3 bg-black rounded-full"></div>
+                                <div class="absolute top-2 right-4 w-3 h-3 bg-black rounded-full"></div>
+                                <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-4 h-2 bg-orange-500 rounded"></div>
+                            </div>
+                        </div>
+                        <p class="text-white text-xs mt-2 text-center">Eagley (sprite)</p>
+                    </div>
+                </div>
+                <p class="mt-4 text-sm text-gray-600">✅ Professional look<br>✅ Easy to implement<br>✅ Many free assets</p>
+            </div>
+        </div>
+
+        <!-- Approach 2: SVG -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+            <h2 class="text-2xl font-bold mb-4">Approach 2: SVG Graphics</h2>
+            <div class="sprite-demo p-8 rounded relative" style="height: 200px;">
+                <div class="absolute top-1/4 left-1/4">
+                    <svg width="64" height="64" viewBox="0 0 64 64">
+                        <circle cx="32" cy="32" r="24" fill="#FF8C00" />
+                        <polygon points="16,16 24,8 32,16" fill="#FF8C00" />
+                        <polygon points="32,16 40,8 48,16" fill="#FF8C00" />
+                        <circle cx="26" cy="28" r="3" fill="white" />
+                        <circle cx="38" cy="28" r="3" fill="white" />
+                        <circle cx="26" cy="28" r="1.5" fill="black" />
+                        <circle cx="38" cy="28" r="1.5" fill="black" />
+                        <polygon points="32,32 28,36 36,36" fill="pink" />
+                        <path d="M 32 36 Q 28 40 24 40" stroke="black" fill="none" strokeWidth="1.5" />
+                        <path d="M 32 36 Q 36 40 40 40" stroke="black" fill="none" strokeWidth="1.5" />
+                    </svg>
+                    <p class="text-white text-xs mt-2 text-center">Pluto (SVG)</p>
+                </div>
+                <div class="absolute top-1/4 right-1/4">
+                    <svg width="64" height="64" viewBox="0 0 64 64">
+                        <circle cx="32" cy="32" r="24" fill="#8B4513" />
+                        <polygon points="16,16 24,8 32,16" fill="#8B4513" />
+                        <polygon points="32,16 40,8 48,16" fill="#8B4513" />
+                        <circle cx="26" cy="28" r="3" fill="white" />
+                        <circle cx="38" cy="28" r="3" fill="white" />
+                        <circle cx="26" cy="28" r="1.5" fill="black" />
+                        <circle cx="38" cy="28" r="1.5" fill="black" />
+                        <polygon points="32,32 28,36 36,36" fill="pink" />
+                        <path d="M 32 36 Q 28 40 24 40" stroke="black" fill="none" strokeWidth="1.5" />
+                        <path d="M 32 36 Q 36 40 40 40" stroke="black" fill="none" strokeWidth="1.5" />
+                    </svg>
+                    <p class="text-white text-xs mt-2 text-center">PJ (SVG)</p>
+                </div>
+                <div class="absolute bottom-1/4 left-1/2 transform -translate-x-1/2">
+                    <svg width="80" height="80" viewBox="0 0 80 80">
+                        <ellipse cx="40" cy="40" rx="20" ry="24" fill="#FFD700" />
+                        <circle cx="40" cy="24" r="12" fill="#FFD700" />
+                        <polygon points="40,24 48,20 40,28" fill="#FF8C00" />
+                        <ellipse cx="24" cy="40" rx="12" ry="18" fill="#DAA520" transform="rotate(-30 24 40)" />
+                        <ellipse cx="56" cy="40" rx="12" ry="18" fill="#DAA520" transform="rotate(30 56 40)" />
+                        <circle cx="35" cy="20" r="3" fill="black" />
+                        <circle cx="45" cy="20" r="3" fill="black" />
+                    </svg>
+                    <p class="text-white text-xs mt-2 text-center">Eagley (SVG)</p>
+                </div>
+            </div>
+            <p class="mt-4 text-sm text-gray-600">✅ Scalable<br>✅ No external files<br>✅ Customizable<br>⚠️ More code to write</p>
+        </div>
+
+        <!-- Approach 5: Pixel Art Style -->
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-2xl font-bold mb-4">Approach 5: Pixel Art Style</h2>
+            <div class="sprite-demo p-8 rounded relative" style="height: 200px;">
+                <div class="absolute top-1/4 left-1/4">
+                    <div class="w-16 h-16" style="image-rendering: pixelated;">
+                        <!-- Pixel art representation -->
+                        <div class="grid grid-cols-8 gap-0 w-16 h-16">
+                            <!-- Simple pixel pattern -->
+                            <div class="bg-orange-600"></div><div class="bg-orange-600"></div><div class="bg-orange-600"></div><div class="bg-orange-600"></div><div class="bg-orange-600"></div><div class="bg-orange-600"></div><div class="bg-orange-600"></div><div class="bg-orange-600"></div>
+                            <div class="bg-orange-600"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-600"></div>
+                            <div class="bg-orange-600"></div><div class="bg-orange-400"></div><div class="bg-white"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-white"></div><div class="bg-orange-400"></div><div class="bg-orange-600"></div>
+                            <div class="bg-orange-600"></div><div class="bg-orange-400"></div><div class="bg-black"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-black"></div><div class="bg-orange-400"></div><div class="bg-orange-600"></div>
+                            <div class="bg-orange-600"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-pink-300"></div><div class="bg-pink-300"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-600"></div>
+                            <div class="bg-orange-600"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-600"></div>
+                            <div class="bg-orange-600"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-400"></div><div class="bg-orange-600"></div>
+                            <div class="bg-orange-600"></div><div class="bg-orange-600"></div><div class="bg-orange-600"></div><div class="bg-orange-600"></div><div class="bg-orange-600"></div><div class="bg-orange-600"></div><div class="bg-orange-600"></div><div class="bg-orange-600"></div>
+                        </div>
+                    </div>
+                    <p class="text-white text-xs mt-2 text-center">Pluto (pixel art)</p>
+                </div>
+                <div class="absolute top-1/4 right-1/4">
+                    <div class="w-16 h-16" style="image-rendering: pixelated;">
+                        <div class="grid grid-cols-8 gap-0 w-16 h-16">
+                            <div class="bg-amber-900"></div><div class="bg-amber-900"></div><div class="bg-amber-900"></div><div class="bg-amber-900"></div><div class="bg-amber-900"></div><div class="bg-amber-900"></div><div class="bg-amber-900"></div><div class="bg-amber-900"></div>
+                            <div class="bg-amber-900"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-900"></div>
+                            <div class="bg-amber-900"></div><div class="bg-amber-800"></div><div class="bg-white"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-white"></div><div class="bg-amber-800"></div><div class="bg-amber-900"></div>
+                            <div class="bg-amber-900"></div><div class="bg-amber-800"></div><div class="bg-black"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-black"></div><div class="bg-amber-800"></div><div class="bg-amber-900"></div>
+                            <div class="bg-amber-900"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-pink-300"></div><div class="bg-pink-300"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-900"></div>
+                            <div class="bg-amber-900"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-900"></div>
+                            <div class="bg-amber-900"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-800"></div><div class="bg-amber-900"></div>
+                            <div class="bg-amber-900"></div><div class="bg-amber-900"></div><div class="bg-amber-900"></div><div class="bg-amber-900"></div><div class="bg-amber-900"></div><div class="bg-amber-900"></div><div class="bg-amber-900"></div><div class="bg-amber-900"></div>
+                        </div>
+                    </div>
+                    <p class="text-white text-xs mt-2 text-center">PJ (pixel art)</p>
+                </div>
+                <div class="absolute bottom-1/4 left-1/2 transform -translate-x-1/2">
+                    <div class="w-20 h-20" style="image-rendering: pixelated;">
+                        <div class="grid grid-cols-10 gap-0 w-20 h-20">
+                            <!-- Simplified pixel eagle -->
+                            <div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div>
+                            <div class="bg-yellow-600"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-600"></div>
+                            <div class="bg-yellow-600"></div><div class="bg-yellow-500"></div><div class="bg-white"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-white"></div><div class="bg-yellow-500"></div><div class="bg-yellow-600"></div>
+                            <div class="bg-yellow-600"></div><div class="bg-yellow-500"></div><div class="bg-black"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-black"></div><div class="bg-yellow-500"></div><div class="bg-yellow-600"></div>
+                            <div class="bg-yellow-600"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-orange-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-orange-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-600"></div>
+                            <div class="bg-yellow-600"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-600"></div>
+                            <div class="bg-yellow-600"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-600"></div>
+                            <div class="bg-yellow-600"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-500"></div><div class="bg-yellow-600"></div>
+                            <div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div>
+                            <div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div><div class="bg-yellow-600"></div>
+                        </div>
+                    </div>
+                    <p class="text-white text-xs mt-2 text-center">Eagley (pixel art)</p>
+                </div>
+            </div>
+            <p class="mt-4 text-sm text-gray-600">✅ Retro aesthetic<br>✅ Many free pixel art assets<br>✅ Popular style<br>⚠️ Need pixel art sprites</p>
+        </div>
+
+        <div class="mt-8 bg-blue-50 p-6 rounded-lg border-2 border-blue-200">
+            <h3 class="text-xl font-bold mb-2">💡 Recommendation</h3>
+            <p class="text-gray-700">
+                <strong>Approach 1 (Sprite Images)</strong> is the best balance of ease and quality. 
+                You can download free sprites from <a href="https://kenney.nl" class="text-blue-600 underline" target="_blank">Kenney.nl</a> or 
+                <a href="https://opengameart.org" class="text-blue-600 underline" target="_blank">OpenGameArt.org</a> and have professional-looking graphics in about 30 minutes.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+
+

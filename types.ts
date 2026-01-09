@@ -1,5 +1,5 @@
-export type GameState = 'ready' | 'running' | 'paused' | 'game over';
-export type PowerUpType = 'speed' | 'shield';
+export type GameState = 'ready' | 'running' | 'paused' | 'game over' | 'tutorial';
+export type PowerUpType = 'speed' | 'shield' | 'freeze' | 'teleport' | 'invisibility' | 'doubleScore';
 export type DayCycle = 'day' | 'dusk' | 'night';
 export type EagleColorState = 'default' | 'green' | 'red';
 export type MessageType = 'win' | 'lose' | 'info';
@@ -46,5 +46,19 @@ export interface CollisionData {
   radiiSum: number;
   dx: number;
   dy: number;
+}
+
+export interface ComboData {
+  count: number;
+  multiplier: number;
+  lastCatchTime: number;
+}
+
+export interface TutorialStep {
+  id: number;
+  title: string;
+  description: string;
+  action?: () => void;
+  completed: boolean;
 }
 

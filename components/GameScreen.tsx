@@ -2,6 +2,7 @@ import React from 'react';
 import Tree from './Tree';
 import ScoreBoard from './ScoreBoard';
 import PowerUpDisplay from './PowerUpDisplay';
+import { PJCat, PlutoCat, Eagle } from './SVGCharacters';
 import { Position, PowerUp, PlutoEffect, LightningState, DayCycle, EagleColorState, TrailPoint } from '../types';
 import { CAT_RADIUS, EAGLE_RADIUS } from '../constants';
 
@@ -9,6 +10,9 @@ interface GameScreenProps {
   roomRef: React.RefObject<HTMLDivElement>;
   onMouseMove: (event: React.MouseEvent<HTMLDivElement>) => void;
   onMouseLeave: () => void;
+  onTouchStart?: (event: React.TouchEvent<HTMLDivElement>) => void;
+  onTouchMove?: (event: React.TouchEvent<HTMLDivElement>) => void;
+  onTouchEnd?: () => void;
   dayCycle: DayCycle;
   pjPos: Position;
   plutoPos: Position;
@@ -17,6 +21,8 @@ interface GameScreenProps {
   eagleColorState: EagleColorState;
   isPlutoScared: boolean;
   isShieldActive: boolean;
+  isPlutoInvisible?: boolean;
+  isEagleFrozen?: boolean;
   powerUps: PowerUp[];
   plutoEffect: PlutoEffect;
   lightningState: LightningState;
@@ -44,6 +50,9 @@ const GameScreen: React.FC<GameScreenProps> = ({
   roomRef,
   onMouseMove,
   onMouseLeave,
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd,
   dayCycle,
   pjPos,
   plutoPos,
@@ -52,6 +61,8 @@ const GameScreen: React.FC<GameScreenProps> = ({
   eagleColorState,
   isPlutoScared,
   isShieldActive,
+  isPlutoInvisible = false,
+  isEagleFrozen = false,
   powerUps,
   plutoEffect,
   lightningState,
@@ -76,6 +87,10 @@ const GameScreen: React.FC<GameScreenProps> = ({
       ref={roomRef}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{ touchAction: 'none' }}
     >
       <div className={`absolute inset-0 w-full h-full transition-colors duration-1000 ${dayCycleClasses[dayCycle]}`}>
         <Tree left="10%" bottom="8%" height={150} />
@@ -111,57 +126,73 @@ const GameScreen: React.FC<GameScreenProps> = ({
 
       {isEagleVisible && (
         <div
-          className={`absolute rounded-full transition-colors duration-200 ${
-            eagleColorState === 'green' ? 'bg-green-500' : 
-            eagleColorState === 'red' ? 'bg-red-500' : 
-            'bg-yellow-400'
-          }`}
+          className="absolute transition-all duration-200"
           style={{
             left: eaglePos.x,
             top: eaglePos.y,
             width: EAGLE_RADIUS * 2,
             height: EAGLE_RADIUS * 2,
             transform: 'translate(-50%, -50%)',
-            boxShadow: '0 0 15px rgba(0,0,0,0.5)',
-            zIndex: 15
+            filter: isEagleFrozen ? 'blur(2px)' : `drop-shadow(0 0 8px ${eagleColorState === 'green' ? 'rgba(34, 197, 94, 0.8)' : eagleColorState === 'red' ? 'rgba(239, 68, 68, 0.8)' : 'rgba(0, 0, 0, 0.5)'})`,
+            zIndex: 15,
+            opacity: isEagleFrozen ? 0.7 : 1.0,
           }}
         >
-          <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl">🦅</span>
+          <Eagle size={EAGLE_RADIUS * 2} isFrozen={isEagleFrozen} colorState={eagleColorState} />
+        </div>
+      )}
+
+      {!isPlutoInvisible && (
+        <div
+          className={`absolute ${plutoScaredClass}`}
+          style={{
+            left: plutoPos.x,
+            top: plutoPos.y,
+            width: CAT_RADIUS * 2,
+            height: CAT_RADIUS * 2,
+            transform: 'translate(-50%, -50%)',
+            filter: 'drop-shadow(0 0 6px rgba(0,0,0,0.4))',
+            zIndex: 5,
+            opacity: isShieldActive ? 0.8 : 1.0
+          }}
+        >
+          <PlutoCat size={CAT_RADIUS * 2} />
+          {isShieldActive && (
+            <div className="absolute -inset-1 border-4 border-cyan-300 rounded-full animate-pulse pointer-events-none"></div>
+          )}
+        </div>
+      )}
+      {isPlutoInvisible && (
+        <div
+          className="absolute border-2 border-dashed border-gray-400 rounded-full"
+          style={{
+            left: plutoPos.x,
+            top: plutoPos.y,
+            width: CAT_RADIUS * 2,
+            height: CAT_RADIUS * 2,
+            transform: 'translate(-50%, -50%)',
+            zIndex: 5,
+            opacity: 0.5,
+            background: 'radial-gradient(circle, rgba(128,128,128,0.3) 0%, transparent 70%)'
+          }}
+        >
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xl">👻</div>
         </div>
       )}
 
       <div
-        className={`absolute rounded-full bg-orange-400 ${plutoScaredClass}`}
-        style={{
-          left: plutoPos.x,
-          top: plutoPos.y,
-          width: CAT_RADIUS * 2,
-          height: CAT_RADIUS * 2,
-          transform: 'translate(-50%, -50%)',
-          boxShadow: '0 0 10px rgba(0,0,0,0.4)',
-          zIndex: 5
-        }}
-      >
-        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xl">😼</span>
-        {isShieldActive && (
-          <div className="absolute -inset-1 border-4 border-cyan-300 rounded-full animate-pulse"></div>
-        )}
-      </div>
-
-      <div
-        className="absolute rounded-full"
+        className="absolute"
         style={{
           left: pjPos.x,
           top: pjPos.y,
           width: CAT_RADIUS * 2,
           height: CAT_RADIUS * 2,
           transform: 'translate(-50%, -50%)',
-          backgroundColor: '#8B4513',
-          boxShadow: '0 0 10px rgba(0,0,0,0.4)',
+          filter: 'drop-shadow(0 0 6px rgba(0,0,0,0.4))',
           zIndex: 5
         }}
       >
-        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xl">😸</span>
+        <PJCat size={CAT_RADIUS * 2} />
       </div>
 
       {explosions.map((pos, index) => (

@@ -22,6 +22,9 @@ export const LIGHTNING_COOLDOWN = 10000;
 export const POWERUP_SPAWN_INTERVAL = 8000;
 export const SHIELD_DURATION = 2000;
 export const SPEED_BOOST_DURATION = 2000;
+export const FREEZE_DURATION = 3000;
+export const INVISIBILITY_DURATION = 2000;
+export const DOUBLE_SCORE_DURATION = 10000;
 
 // Multipliers
 export const PLUTO_SPEED_BOOST_MULTIPLIER = 1.5;
@@ -41,4 +44,18 @@ export const MAX_TRAIL_POINTS = 10;
 export const VICTORY_SCORE = 6;
 export const LEVEL_TRANSITION_SCORE = 3;
 export const GAME_OVER_SCORE = 3;
+
+// Combo system
+export const COMBO_WINDOW = 5000; // 5 seconds to maintain combo
+export const COMBO_MULTIPLIER_BASE = 1.2; // 20% per combo
+export const MAX_COMBO_MULTIPLIER = 3.0; // Max 3x multiplier
+
+// Power-up spawn chances (must sum to 1.0)
+export const POWERUP_COMMON_CHANCE = 0.75; // Speed, Shield
+export const POWERUP_RARE_CHANCE = 0.20; // Freeze, Teleport
+export const POWERUP_EPIC_CHANCE = 0.05; // Invisibility, Double Score
+
+// Visual effects
+export const SCREEN_SHAKE_DURATION = 200;
+export const SCREEN_SHAKE_INTENSITY = 10;
 

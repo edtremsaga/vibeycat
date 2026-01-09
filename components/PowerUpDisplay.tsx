@@ -1,6 +1,6 @@
 import React from 'react';
 import { PowerUp, PlutoEffect, LightningState } from '../types';
-import { LIGHTNING_COOLDOWN, SHIELD_DURATION, SPEED_BOOST_DURATION } from '../constants';
+import { LIGHTNING_COOLDOWN, SHIELD_DURATION, SPEED_BOOST_DURATION, FREEZE_DURATION, INVISIBILITY_DURATION, DOUBLE_SCORE_DURATION } from '../constants';
 
 interface PowerUpDisplayProps {
   powerUps: PowerUp[];
@@ -14,7 +14,18 @@ const PowerUpDisplay: React.FC<PowerUpDisplayProps> = ({
   lightningState 
 }) => {
   const lightningCooldownPercent = (lightningState.cooldownLeft / LIGHTNING_COOLDOWN) * 100;
-  const powerupDuration = plutoEffect.type === 'speed' ? SPEED_BOOST_DURATION : SHIELD_DURATION;
+  const getPowerUpDuration = (type: string | null): number => {
+    switch (type) {
+      case 'speed': return SPEED_BOOST_DURATION;
+      case 'shield': return SHIELD_DURATION;
+      case 'freeze': return FREEZE_DURATION;
+      case 'invisibility': return INVISIBILITY_DURATION;
+      case 'doubleScore': return DOUBLE_SCORE_DURATION;
+      default: return 0;
+    }
+  };
+  
+  const powerupDuration = getPowerUpDuration(plutoEffect.type);
   const powerupTimePercent = plutoEffect.timeLeft > 0 ? (plutoEffect.timeLeft / powerupDuration) * 100 : 0;
 
   return (
@@ -27,6 +38,10 @@ const PowerUpDisplay: React.FC<PowerUpDisplayProps> = ({
         >
           {p.type === 'speed' && '🚀'}
           {p.type === 'shield' && '🛡️'}
+          {p.type === 'freeze' && '❄️'}
+          {p.type === 'teleport' && '✨'}
+          {p.type === 'invisibility' && '👻'}
+          {p.type === 'doubleScore' && '⭐'}
         </div>
       ))}
 
@@ -46,8 +61,19 @@ const PowerUpDisplay: React.FC<PowerUpDisplayProps> = ({
       {plutoEffect.type && plutoEffect.timeLeft > 0 && (
         <div className="absolute bottom-4 right-4 w-48 bg-black/30 rounded-lg p-2 text-white text-sm z-20">
           <div className="flex items-center">
-            <span className="mr-2 text-lg">{plutoEffect.type === 'speed' ? '🚀' : '🛡️'}</span>
-            <span>{plutoEffect.type.charAt(0).toUpperCase() + plutoEffect.type.slice(1)} Boost</span>
+            <span className="mr-2 text-lg">
+              {plutoEffect.type === 'speed' && '🚀'}
+              {plutoEffect.type === 'shield' && '🛡️'}
+              {plutoEffect.type === 'freeze' && '❄️'}
+              {plutoEffect.type === 'teleport' && '✨'}
+              {plutoEffect.type === 'invisibility' && '👻'}
+              {plutoEffect.type === 'doubleScore' && '⭐'}
+            </span>
+            <span>
+              {plutoEffect.type === 'doubleScore' ? 'Double Score' : 
+               plutoEffect.type === 'invisibility' ? 'Invisibility' :
+               plutoEffect.type.charAt(0).toUpperCase() + plutoEffect.type.slice(1)} Active
+            </span>
             <span className="ml-auto font-bold text-yellow-400">
               {`${(plutoEffect.timeLeft / 1000).toFixed(1)}s`}
             </span>
