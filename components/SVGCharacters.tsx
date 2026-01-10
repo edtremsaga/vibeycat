@@ -113,111 +113,70 @@ export const Eagle: React.FC<SVGCharacterProps & { isFrozen?: boolean; colorStat
   isFrozen = false,
   colorState = 'default'
 }) => {
-  let fillColor = '#FFD700';
-  let bodyColor = '#DAA520';
+  const [imageError, setImageError] = React.useState(false);
   
+  // Calculate CSS filter for color state effects
+  let filter = '';
   if (isFrozen) {
-    fillColor = '#87CEEB';
-    bodyColor = '#B0E0E6';
+    // Blue tint for frozen state
+    filter = 'blur(2px) brightness(1.2) saturate(0.3) hue-rotate(180deg)';
   } else if (colorState === 'green') {
-    fillColor = '#22C55E';
-    bodyColor = '#16A34A';
+    // Green tint for boosted/chase state
+    filter = 'brightness(1.1) saturate(1.3) hue-rotate(60deg)';
   } else if (colorState === 'red') {
-    fillColor = '#EF4444';
-    bodyColor = '#DC2626';
+    // Red tint for defensive boost state
+    filter = 'brightness(1.1) saturate(1.3) hue-rotate(-30deg)';
+  }
+  
+  // Determine fallback background color
+  const fallbackBgColor = isFrozen 
+    ? '#87CEEB' 
+    : colorState === 'green' 
+    ? '#22C55E' 
+    : colorState === 'red' 
+    ? '#EF4444' 
+    : '#FFD700';
+  
+  // If image failed to load, show fallback
+  if (imageError) {
+    return (
+      <div
+        className={className}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          background: fallbackBgColor,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          fontSize: `${size / 3}px`,
+        }}
+      >
+        🦅
+      </div>
+    );
   }
   
   return (
-    <svg
+    <img
+      src="/assets/eagle.png"
+      alt="Eagle"
       className={className}
       width={size}
       height={size}
-      viewBox="0 0 80 80"
-      style={{ display: 'block' }}
-    >
-      {/* Eagle body */}
-      <ellipse cx="40" cy="40" rx="20" ry="24" fill={fillColor} />
-      <ellipse cx="40" cy="40" rx="20" ry="24" fill="url(#eagleGradient)" />
-      
-      {/* Eagle head */}
-      <circle cx="40" cy="24" r="12" fill={fillColor} />
-      <circle cx="40" cy="24" r="12" fill="url(#eagleHeadGradient)" />
-      
-      {/* Eagle beak */}
-      <polygon points="40,24 48,20 40,28" fill="#FF8C00" />
-      <polygon points="40,24 46,22 40,26" fill="#FFA500" />
-      
-      {/* Eagle wings */}
-      <ellipse 
-        cx="24" 
-        cy="40" 
-        rx="12" 
-        ry="18" 
-        fill={bodyColor} 
-        transform="rotate(-30 24 40)" 
-      />
-      <ellipse 
-        cx="56" 
-        cy="40" 
-        rx="12" 
-        ry="18" 
-        fill={bodyColor} 
-        transform="rotate(30 56 40)" 
-      />
-      
-      {/* Wing details */}
-      <ellipse 
-        cx="20" 
-        cy="38" 
-        rx="8" 
-        ry="12" 
-        fill={fillColor} 
-        transform="rotate(-30 20 38)" 
-        opacity="0.7"
-      />
-      <ellipse 
-        cx="60" 
-        cy="38" 
-        rx="8" 
-        ry="12" 
-        fill={fillColor} 
-        transform="rotate(30 60 38)" 
-        opacity="0.7"
-      />
-      
-      {/* Eagle eyes */}
-      <circle cx="35" cy="20" r="3" fill="white" />
-      <circle cx="45" cy="20" r="3" fill="white" />
-      <circle cx="35" cy="20" r="1.5" fill="black" />
-      <circle cx="45" cy="20" r="1.5" fill="black" />
-      
-      {/* Eagle talons */}
-      <path d="M 32 50 L 30 56 L 34 56 Z" fill="#8B4513" />
-      <path d="M 40 52 L 38 58 L 42 58 Z" fill="#8B4513" />
-      <path d="M 48 50 L 50 56 L 46 56 Z" fill="#8B4513" />
-      
-      {/* Ice effect if frozen */}
-      {isFrozen && (
-        <>
-          <circle cx="35" cy="20" r="4" fill="none" stroke="#87CEEB" strokeWidth="1" opacity="0.6" />
-          <circle cx="45" cy="20" r="4" fill="none" stroke="#87CEEB" strokeWidth="1" opacity="0.6" />
-          <path d="M 30 30 L 50 30" stroke="#87CEEB" strokeWidth="1" opacity="0.5" />
-          <path d="M 30 35 L 50 35" stroke="#87CEEB" strokeWidth="1" opacity="0.5" />
-        </>
-      )}
-      
-      {/* Gradient definitions */}
-      <defs>
-        <linearGradient id="eagleGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" style={{ stopColor: fillColor, stopOpacity: 1 }} />
-          <stop offset="100%" style={{ stopColor: bodyColor, stopOpacity: 1 }} />
-        </linearGradient>
-        <linearGradient id="eagleHeadGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" style={{ stopColor: fillColor, stopOpacity: 1 }} />
-          <stop offset="100%" style={{ stopColor: bodyColor, stopOpacity: 0.8 }} />
-        </linearGradient>
-      </defs>
-    </svg>
+      style={{
+        display: 'block',
+        filter: filter || 'none',
+        transition: 'filter 0.2s ease-in-out',
+        objectFit: 'contain',
+      }}
+      onError={() => {
+        // Set error state - React will re-render with fallback
+        setImageError(true);
+      }}
+    />
   );
 };
 

@@ -1,0 +1,33 @@
+# Cursor Project Rules for vibeycats
+
+## Required Workflow Pattern
+
+**IMPORTANT: Always follow this workflow pattern for EVERY instruction/request:**
+
+1. **STEP 1 - Explain**: First, explain what the user has asked for in your own words. Clarify understanding of the request.
+
+2. **STEP 2 - Describe Solution**: Describe your proposed solution approach. Include:
+   - What files will be modified
+   - What changes will be made
+   - Any considerations or alternatives
+   - Potential impacts or side effects
+
+3. **STEP 3 - Ask for Confirmation**: Ask the user how they want to proceed before writing any code. Wait for their approval/confirmation.
+
+4. **STEP 4 - Implement**: Only after receiving confirmation, proceed to write code and make changes.
+
+## Workflow Exception
+
+- **ONLY** skip this pattern if the user explicitly says "just do it", "implement now", or similar explicit permission to proceed immediately.
+
+## Code Style & Best Practices
+
+- Follow TypeScript best practices
+- Maintain existing code structure and patterns
+- Add comments for complex logic
+- Keep components modular and maintainable
+- Test changes work with existing game logic
+
+## Project Context
+
+This is a React/TypeScript game project called "vibeycats" - a cat vs eagle chase game built with Vite.

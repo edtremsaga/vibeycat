@@ -27,6 +27,7 @@ const App: React.FC = () => {
   // Refs for values that don't need re-renders
   const pjVelocity = useRef({ vx: 0, vy: 0 });
   const plutoVelocity = useRef({ vx: 0, vy: 0 });
+  const eagleVelocity = useRef({ vx: 0, vy: 0 });
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const mousePos = useRef<Position>({ x: 0, y: 0 });
 
@@ -101,6 +102,7 @@ const App: React.FC = () => {
     keysPressed.current = {};
     setPlutoEffect({ type: null, timeLeft: 0 });
     pjVelocity.current = { vx: 0, vy: 0 };
+    eagleVelocity.current = { vx: 0, vy: 0 };
 
     setPowerUps([]);
     powerupSpawnTimer.current = 0;
@@ -117,7 +119,49 @@ const App: React.FC = () => {
       const initialPlutoPos = { x: roomWidth * 0.6, y: waterLine - Constants.CAT_RADIUS * 1.5 };
       setPjPos(initialPjPos);
       setPlutoPos(initialPlutoPos);
-      setEaglePos({ x: Constants.EAGLE_RADIUS * 2, y: Constants.EAGLE_RADIUS * 2 });
+      
+      // Random eagle starting position with minimum distance check
+      // Prefer upper area (top 60%) to stay away from cats near water line
+      let eagleStartPos: Position;
+      let attempts = 0;
+      const maxAttempts = 20;
+      const minDistance = Constants.EAGLE_MIN_DISTANCE_FROM_CATS;
+      const topSpawnHeight = roomHeight * Constants.EAGLE_SPAWN_TOP_PERCENT;
+      
+      do {
+        // Random position in upper area, away from edges
+        eagleStartPos = {
+          x: Constants.EAGLE_RADIUS + Math.random() * (roomWidth - Constants.EAGLE_RADIUS * 2),
+          y: Constants.EAGLE_RADIUS + Math.random() * (topSpawnHeight - Constants.EAGLE_RADIUS * 2)
+        };
+        
+        // Check distance from both cats
+        const distToPj = Math.sqrt(
+          Math.pow(eagleStartPos.x - initialPjPos.x, 2) + 
+          Math.pow(eagleStartPos.y - initialPjPos.y, 2)
+        );
+        const distToPluto = Math.sqrt(
+          Math.pow(eagleStartPos.x - initialPlutoPos.x, 2) + 
+          Math.pow(eagleStartPos.y - initialPlutoPos.y, 2)
+        );
+        
+        // If far enough from both cats, we're good
+        if (distToPj >= minDistance && distToPluto >= minDistance) {
+          break;
+        }
+        
+        attempts++;
+      } while (attempts < maxAttempts);
+      
+      // Fallback: if we couldn't find a good position, use safe default (upper right area)
+      if (attempts >= maxAttempts) {
+        eagleStartPos = { 
+          x: roomWidth * 0.85, 
+          y: roomHeight * 0.25 
+        };
+      }
+      
+      setEaglePos(eagleStartPos);
     }
   }, []);
 
@@ -137,6 +181,7 @@ const App: React.FC = () => {
     setIsLightningActive(false);
     setIsEagleStunned(false);
     setLightningState({ ready: true, cooldownLeft: 0 });
+    eagleVelocity.current = { vx: 0, vy: 0 };
 
     setIsEagleVisible(true);
     setExplosions([]);
@@ -157,7 +202,7 @@ const App: React.FC = () => {
       setMessage(null);
       setGameState('running');
     } else {
-      setMessage({ text: "Move Pluto with Arrow Keys to begin!", type: 'info' });
+      setMessage({ text: "To start press space bar then use arrow keys to move the cat", type: 'info' });
       setGameState('ready');
     }
   }, [resetRound]);
@@ -221,6 +266,7 @@ const App: React.FC = () => {
 
     setIsLightningActive(true);
     setIsEagleStunned(true);
+    eagleVelocity.current = { vx: 0, vy: 0 }; // Stop eagle when stunned
     setLightningState({ ready: false, cooldownLeft: Constants.LIGHTNING_COOLDOWN });
     audioService.playLightning();
     setScreenShake(Constants.SCREEN_SHAKE_INTENSITY);
@@ -563,31 +609,147 @@ const App: React.FC = () => {
         }
       }
 
+      // Velocity-based movement with smoothing
       const dxTarget = targetX - eaglePos.x;
       const dyTarget = targetY - eaglePos.y;
       const targetDist = Math.sqrt(dxTarget * dxTarget + dyTarget * dyTarget);
-      const nx = targetDist > 0.1 ? dxTarget / targetDist : 0;
-      const ny = targetDist > 0.1 ? dyTarget / targetDist : 0;
-
-      const moveX = nx * currentMoveSpeed * frameMultiplier;
-      const moveY = ny * currentMoveSpeed * frameMultiplier;
+      
+      // Distance-based speed scaling - multi-tiered approach for balanced gameplay
+      // Gives cats escape window when eagle is nearby
+      let adjustedMoveSpeed = currentMoveSpeed;
+      
+      if (targetDist < Constants.EAGLE_VERY_CLOSE_DISTANCE) {
+        // Very close range - aggressive slowdown and hard cap
+        // Maximum speed when very close is limited to prevent overwhelming Pluto
+        const baseSpeed = Constants.EAGLE_EVASION_SPEED;
+        const maxAllowedSpeed = baseSpeed * Constants.EAGLE_VERY_CLOSE_MAX_SPEED_MULTIPLIER;
+        adjustedMoveSpeed = Math.min(currentMoveSpeed, maxAllowedSpeed);
+        
+        // Additional gradual slowdown as it gets even closer
+        const veryCloseFactor = Math.max(0.1, targetDist / Constants.EAGLE_VERY_CLOSE_DISTANCE); // Prevent division by zero
+        const veryCloseMultiplier = Constants.EAGLE_CLOSE_SPEED_MULTIPLIER + (0.6 - Constants.EAGLE_CLOSE_SPEED_MULTIPLIER) * veryCloseFactor;
+        adjustedMoveSpeed = adjustedMoveSpeed * veryCloseMultiplier;
+      } else if (targetDist < Constants.EAGLE_CLOSE_DISTANCE) {
+        // Close range - gradual slowdown as eagle approaches
+        const distanceFactor = (targetDist - Constants.EAGLE_VERY_CLOSE_DISTANCE) / (Constants.EAGLE_CLOSE_DISTANCE - Constants.EAGLE_VERY_CLOSE_DISTANCE);
+        const speedMultiplier = Constants.EAGLE_CLOSE_SPEED_MULTIPLIER + (0.6 - Constants.EAGLE_CLOSE_SPEED_MULTIPLIER) * distanceFactor;
+        adjustedMoveSpeed = currentMoveSpeed * speedMultiplier;
+      }
+      
+      // Enforce minimum speed to prevent freezing
+      adjustedMoveSpeed = Math.max(adjustedMoveSpeed, Constants.EAGLE_MIN_SPEED);
+      
+      // Get current eagle velocity first (needed for direction calculation)
+      let currentVelX = eagleVelocity.current.vx;
+      let currentVelY = eagleVelocity.current.vy;
+      
+      // Calculate current speed from velocity
+      const currentSpeed = Math.sqrt(currentVelX * currentVelX + currentVelY * currentVelY);
+      
+      // Calculate desired direction (normalized)
+      // Use current direction as fallback if target is too close (prevents freezing)
+      let desiredDirX: number;
+      let desiredDirY: number;
+      
+      if (targetDist > 0.1) {
+        // Normal case: use direction toward target
+        desiredDirX = dxTarget / targetDist;
+        desiredDirY = dyTarget / targetDist;
+      } else {
+        // Very close: use current velocity direction to maintain movement
+        if (currentSpeed > 0.01) {
+          // Use current direction to maintain movement
+          desiredDirX = currentVelX / currentSpeed;
+          desiredDirY = currentVelY / currentSpeed;
+        } else {
+          // No current velocity: use direction toward target with minimum distance
+          const minDist = Math.max(0.1, targetDist);
+          desiredDirX = dxTarget / minDist;
+          desiredDirY = dyTarget / minDist;
+        }
+      }
+      
+      // Calculate current direction from velocity (for turn rate limiting)
+      const currentDirX = currentSpeed > 0.01 ? currentVelX / currentSpeed : desiredDirX; // Use desired direction if no current velocity
+      const currentDirY = currentSpeed > 0.01 ? currentVelY / currentSpeed : desiredDirY; // Use desired direction if no current velocity
+      
+      // Turn rate limiting - prevent sudden direction changes
+      // Use desired angle directly if we don't have a current direction
+      let currentAngle: number;
+      if (currentSpeed > 0.01) {
+        currentAngle = Math.atan2(currentDirY, currentDirX);
+      } else {
+        currentAngle = Math.atan2(desiredDirY, desiredDirX); // Start with desired angle
+      }
+      const desiredAngle = Math.atan2(desiredDirY, desiredDirX);
+      let angleDiff = desiredAngle - currentAngle;
+      
+      // Normalize angle difference to -π to π
+      while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+      while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+      
+      // Limit turn rate
+      const maxTurn = Constants.EAGLE_MAX_TURN_RATE;
+      if (Math.abs(angleDiff) > maxTurn) {
+        angleDiff = Math.sign(angleDiff) * maxTurn;
+      }
+      
+      // Calculate new direction with limited turn rate
+      const newAngle = currentAngle + angleDiff;
+      const limitedDesiredDirX = Math.cos(newAngle);
+      const limitedDesiredDirY = Math.sin(newAngle);
+      
+      // Calculate desired velocity (limited direction * adjusted speed)
+      const desiredVelX = limitedDesiredDirX * adjustedMoveSpeed;
+      const desiredVelY = limitedDesiredDirY * adjustedMoveSpeed;
+      
+      // Smoothly interpolate current velocity toward desired velocity
+      // This creates smooth acceleration/deceleration and curved movement paths
+      const accelerationFactor = Constants.EAGLE_ACCELERATION_FACTOR;
+      let newVelX = currentVelX + (desiredVelX - currentVelX) * accelerationFactor;
+      let newVelY = currentVelY + (desiredVelY - currentVelY) * accelerationFactor;
+      
+      // Maximum velocity cap - prevent sudden speed spikes
+      const newSpeed = Math.sqrt(newVelX * newVelX + newVelY * newVelY);
+      if (newSpeed > Constants.EAGLE_MAX_VELOCITY) {
+        newVelX = (newVelX / newSpeed) * Constants.EAGLE_MAX_VELOCITY;
+        newVelY = (newVelY / newSpeed) * Constants.EAGLE_MAX_VELOCITY;
+      }
+      
+      // Enforce minimum speed to prevent freezing (only if we have a direction)
+      const finalSpeed = Math.sqrt(newVelX * newVelX + newVelY * newVelY);
+      if (finalSpeed > 0.01 && finalSpeed < Constants.EAGLE_MIN_SPEED) {
+        // Scale up to minimum speed while maintaining direction
+        const scale = Constants.EAGLE_MIN_SPEED / finalSpeed;
+        newVelX = newVelX * scale;
+        newVelY = newVelY * scale;
+      }
+      
+      // Update velocity ref
+      eagleVelocity.current.vx = newVelX;
+      eagleVelocity.current.vy = newVelY;
+      
+      // Apply velocity to position
+      const moveX = newVelX * frameMultiplier;
+      const moveY = newVelY * frameMultiplier;
 
       let newX = eaglePos.x + moveX;
       let newY = eaglePos.y + moveY;
 
+      // Boundary collision handling with velocity adjustment
       const checkX = newX + Math.sign(moveX) * Constants.EAGLE_RADIUS;
       const checkY = newY + Math.sign(moveY) * Constants.EAGLE_RADIUS;
 
       if (checkX < eagleLeftLimit || checkX > eagleRightLimit) {
         newX = Math.max(eagleLeftLimit, Math.min(eagleRightLimit, newX));
-        const slideDirection = Math.sign(moveY) || (Math.random() > 0.5 ? 1 : -1);
-        newY = eaglePos.y + slideDirection * Math.abs(moveX);
+        // Cancel X velocity when hitting horizontal boundary
+        eagleVelocity.current.vx = 0;
       }
 
       if (checkY < eagleTopLimit || checkY > eagleBottomLimit) {
         newY = Math.max(eagleTopLimit, Math.min(eagleBottomLimit, newY));
-        const slideDirection = Math.sign(moveX) || (Math.random() > 0.5 ? 1 : -1);
-        newX = eaglePos.x + slideDirection * Math.abs(moveY);
+        // Cancel Y velocity when hitting vertical boundary
+        eagleVelocity.current.vy = 0;
       }
 
       nextEaglePos = {
@@ -596,11 +758,15 @@ const App: React.FC = () => {
       };
     }
 
-    // Eagle trail
-    if ((isBoosted || isDefensiveBoosted) && currentTime - lastTrailTime.current > Constants.EAGLE_TRAIL_UPDATE_INTERVAL) {
+    // Eagle trail - only add trail when eagle is actually moving
+    const isEagleMoving = !isEagleStunned && !isEagleFrozen;
+    if (isEagleMoving && (isBoosted || isDefensiveBoosted) && currentTime - lastTrailTime.current > Constants.EAGLE_TRAIL_UPDATE_INTERVAL) {
       const newTrail = [...eagleTrail, { pos: eaglePos, id: nextTrailId.current++ }];
       setEagleTrail(newTrail.slice(-Constants.MAX_TRAIL_POINTS));
       lastTrailTime.current = currentTime;
+    } else if (!isEagleMoving && eagleTrail.length > 0) {
+      // Clear trail when eagle stops moving (frozen or stunned)
+      setEagleTrail([]);
     }
 
     // Power-up collection
@@ -620,6 +786,7 @@ const App: React.FC = () => {
             break;
           case 'freeze':
             setIsEagleFrozen(true);
+            eagleVelocity.current = { vx: 0, vy: 0 }; // Stop eagle when frozen
             addTimeout(() => setIsEagleFrozen(false), Constants.FREEZE_DURATION);
             setPowerUps(current => current.filter(up => up.id !== p.id));
             return;
@@ -893,7 +1060,7 @@ const App: React.FC = () => {
               {gameState === 'paused' ? 'Resume' : 'Pause'} (P)
             </button>
             <button onClick={resetGame} className="px-6 py-2 bg-pink-500 text-white font-bold rounded-lg shadow-md hover:bg-pink-600 transition duration-150">
-              Start / Reset (Space)
+              Start (Space)
             </button>
             <button 
               onClick={() => setShowTutorial(true)} 

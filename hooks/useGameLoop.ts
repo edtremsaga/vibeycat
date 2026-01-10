@@ -20,6 +20,7 @@ interface UseGameLoopProps {
   velocitiesRef: React.MutableRefObject<{
     pj: { vx: number; vy: number };
     pluto: { vx: number; vy: number };
+    eagle: { vx: number; vy: number };
   }>;
   effectsRef: React.MutableRefObject<{
     plutoEffect: { type: 'speed' | 'shield' | null; timeLeft: number };
@@ -371,31 +372,140 @@ export function useGameLoop({
         }
       }
 
+      // Velocity-based movement with smoothing
       const dxTarget = targetX - currentEaglePos.x;
       const dyTarget = targetY - currentEaglePos.y;
       const targetDist = Math.sqrt(dxTarget * dxTarget + dyTarget * dyTarget);
-      const nx = targetDist > 0.1 ? dxTarget / targetDist : 0;
-      const ny = targetDist > 0.1 ? dyTarget / targetDist : 0;
+      
+      // Distance-based speed scaling - multi-tiered approach for balanced gameplay
+      // Gives cats escape window when eagle is nearby
+      let adjustedMoveSpeed = currentMoveSpeed;
+      
+      if (targetDist < Constants.EAGLE_VERY_CLOSE_DISTANCE) {
+        // Very close range - aggressive slowdown and hard cap
+        // Maximum speed when very close is limited to prevent overwhelming Pluto
+        const baseSpeed = Constants.EAGLE_EVASION_SPEED;
+        const maxAllowedSpeed = baseSpeed * Constants.EAGLE_VERY_CLOSE_MAX_SPEED_MULTIPLIER;
+        adjustedMoveSpeed = Math.min(currentMoveSpeed, maxAllowedSpeed);
+        
+        // Additional gradual slowdown as it gets even closer
+        const veryCloseFactor = Math.max(0.1, targetDist / Constants.EAGLE_VERY_CLOSE_DISTANCE); // Prevent division by zero
+        const veryCloseMultiplier = Constants.EAGLE_CLOSE_SPEED_MULTIPLIER + (0.6 - Constants.EAGLE_CLOSE_SPEED_MULTIPLIER) * veryCloseFactor;
+        adjustedMoveSpeed = adjustedMoveSpeed * veryCloseMultiplier;
+      } else if (targetDist < Constants.EAGLE_CLOSE_DISTANCE) {
+        // Close range - gradual slowdown as eagle approaches
+        const distanceFactor = (targetDist - Constants.EAGLE_VERY_CLOSE_DISTANCE) / (Constants.EAGLE_CLOSE_DISTANCE - Constants.EAGLE_VERY_CLOSE_DISTANCE);
+        const speedMultiplier = Constants.EAGLE_CLOSE_SPEED_MULTIPLIER + (0.6 - Constants.EAGLE_CLOSE_SPEED_MULTIPLIER) * distanceFactor;
+        adjustedMoveSpeed = currentMoveSpeed * speedMultiplier;
+      }
+      
+      // Enforce minimum speed to prevent freezing
+      adjustedMoveSpeed = Math.max(adjustedMoveSpeed, Constants.EAGLE_MIN_SPEED);
+      
+      // Calculate desired direction (normalized)
+      // Use current direction as fallback if target is too close (prevents freezing)
+      let desiredDirX: number;
+      let desiredDirY: number;
+      
+      if (targetDist > 0.1) {
+        // Normal case: use direction toward target
+        desiredDirX = dxTarget / targetDist;
+        desiredDirY = dyTarget / targetDist;
+      } else {
+        // Very close: use current velocity direction to maintain movement
+        const currentSpeed = Math.sqrt(velocitiesRef.current.eagle.vx * velocitiesRef.current.eagle.vx + velocitiesRef.current.eagle.vy * velocitiesRef.current.eagle.vy);
+        if (currentSpeed > 0.01) {
+          // Use current direction
+          desiredDirX = velocitiesRef.current.eagle.vx / currentSpeed;
+          desiredDirY = velocitiesRef.current.eagle.vy / currentSpeed;
+        } else {
+          // No current velocity: use direction toward target with minimum distance
+          const minDist = Math.max(0.1, targetDist);
+          desiredDirX = dxTarget / minDist;
+          desiredDirY = dyTarget / minDist;
+        }
+      }
+      
+      // Get current eagle velocity
+      let currentVelX = velocitiesRef.current.eagle.vx;
+      let currentVelY = velocitiesRef.current.eagle.vy;
+      
+      // Calculate current direction from velocity
+      const currentSpeed = Math.sqrt(currentVelX * currentVelX + currentVelY * currentVelY);
+      const currentDirX = currentSpeed > 0.01 ? currentVelX / currentSpeed : 0;
+      const currentDirY = currentSpeed > 0.01 ? currentVelY / currentSpeed : 0;
+      
+      // Turn rate limiting - prevent sudden direction changes
+      const currentAngle = Math.atan2(currentDirY, currentDirX);
+      const desiredAngle = Math.atan2(desiredDirY, desiredDirX);
+      let angleDiff = desiredAngle - currentAngle;
+      
+      // Normalize angle difference to -π to π
+      while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+      while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+      
+      // Limit turn rate
+      const maxTurn = Constants.EAGLE_MAX_TURN_RATE;
+      if (Math.abs(angleDiff) > maxTurn) {
+        angleDiff = Math.sign(angleDiff) * maxTurn;
+      }
+      
+      // Calculate new direction with limited turn rate
+      const newAngle = currentAngle + angleDiff;
+      const limitedDesiredDirX = Math.cos(newAngle);
+      const limitedDesiredDirY = Math.sin(newAngle);
+      
+      // Calculate desired velocity (limited direction * adjusted speed)
+      const desiredVelX = limitedDesiredDirX * adjustedMoveSpeed;
+      const desiredVelY = limitedDesiredDirY * adjustedMoveSpeed;
+      
+      // Smoothly interpolate current velocity toward desired velocity
+      // This creates smooth acceleration/deceleration and curved movement paths
+      const accelerationFactor = Constants.EAGLE_ACCELERATION_FACTOR;
+      let newVelX = currentVelX + (desiredVelX - currentVelX) * accelerationFactor;
+      let newVelY = currentVelY + (desiredVelY - currentVelY) * accelerationFactor;
+      
+      // Maximum velocity cap - prevent sudden speed spikes
+      const newSpeed = Math.sqrt(newVelX * newVelX + newVelY * newVelY);
+      if (newSpeed > Constants.EAGLE_MAX_VELOCITY) {
+        newVelX = (newVelX / newSpeed) * Constants.EAGLE_MAX_VELOCITY;
+        newVelY = (newVelY / newSpeed) * Constants.EAGLE_MAX_VELOCITY;
+      }
 
-      const moveX = nx * currentMoveSpeed * frameMultiplier;
-      const moveY = ny * currentMoveSpeed * frameMultiplier;
+      // Enforce minimum speed to prevent freezing (only if we have a direction)
+      const finalSpeed = Math.sqrt(newVelX * newVelX + newVelY * newVelY);
+      if (finalSpeed > 0.01 && finalSpeed < Constants.EAGLE_MIN_SPEED) {
+        // Scale up to minimum speed while maintaining direction
+        const scale = Constants.EAGLE_MIN_SPEED / finalSpeed;
+        newVelX = newVelX * scale;
+        newVelY = newVelY * scale;
+      }
+      
+      // Update velocity ref
+      velocitiesRef.current.eagle.vx = newVelX;
+      velocitiesRef.current.eagle.vy = newVelY;
+      
+      // Apply velocity to position
+      const moveX = newVelX * frameMultiplier;
+      const moveY = newVelY * frameMultiplier;
 
       let newX = currentEaglePos.x + moveX;
       let newY = currentEaglePos.y + moveY;
 
+      // Boundary collision handling with velocity adjustment
       const checkX = newX + Math.sign(moveX) * Constants.EAGLE_RADIUS;
       const checkY = newY + Math.sign(moveY) * Constants.EAGLE_RADIUS;
 
       if (checkX < eagleLeftLimit || checkX > eagleRightLimit) {
         newX = Math.max(eagleLeftLimit, Math.min(eagleRightLimit, newX));
-        const slideDirection = Math.sign(moveY) || (Math.random() > 0.5 ? 1 : -1);
-        newY = currentEaglePos.y + slideDirection * Math.abs(moveX);
+        // Cancel X velocity when hitting horizontal boundary
+        velocitiesRef.current.eagle.vx = 0;
       }
 
       if (checkY < eagleTopLimit || checkY > eagleBottomLimit) {
         newY = Math.max(eagleTopLimit, Math.min(eagleBottomLimit, newY));
-        const slideDirection = Math.sign(moveX) || (Math.random() > 0.5 ? 1 : -1);
-        newX = currentEaglePos.x + slideDirection * Math.abs(moveY);
+        // Cancel Y velocity when hitting vertical boundary
+        velocitiesRef.current.eagle.vy = 0;
       }
 
       nextEaglePos = {

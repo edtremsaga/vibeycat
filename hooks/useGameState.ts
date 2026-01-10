@@ -86,9 +86,11 @@ export function useGameState() {
   const velocitiesRef = useRef<{
     pj: { vx: number; vy: number };
     pluto: { vx: number; vy: number };
+    eagle: { vx: number; vy: number };
   }>({
     pj: { vx: 0, vy: 0 },
     pluto: { vx: 0, vy: 0 },
+    eagle: { vx: 0, vy: 0 },
   });
 
   const effectsRef = useRef<{
@@ -144,7 +146,7 @@ export function useGameState() {
   const resetGame = useCallback(() => {
     dispatch({ type: 'RESET_GAME' });
     positionsRef.current = { pj: { x: 0, y: 0 }, pluto: { x: 0, y: 0 }, eagle: { x: 0, y: 0 } };
-    velocitiesRef.current = { pj: { vx: 0, vy: 0 }, pluto: { vx: 0, vy: 0 } };
+    velocitiesRef.current = { pj: { vx: 0, vy: 0 }, pluto: { vx: 0, vy: 0 }, eagle: { vx: 0, vy: 0 } };
     effectsRef.current = {
       plutoEffect: { type: null, timeLeft: 0 },
       lightningState: { ready: true, cooldownLeft: 0 },
